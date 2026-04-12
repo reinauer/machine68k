@@ -6,40 +6,65 @@ on:
     tags: ['v*']
 
 jobs:
-  build:
-    name: Build distribution 📦
-    runs-on: ubuntu-latest
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
     - uses: actions/checkout@v6
       with:
         persist-credentials: false
         fetch-depth: 0  # Required for setuptools-scm to find tags
+
+    - name: Build wheels
+      uses: pypa/cibuildwheel@v2.21
+      env:
+        CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-* cp313-*"
+        CIBW_SKIP: "*-musllinux_* *_i686 *-win32"
+        CIBW_ARCHS_LINUX: x86_64
+        CIBW_ARCHS_MACOS: x86_64 arm64
+        CIBW_ARCHS_WINDOWS: AMD64
+
+    - uses: actions/upload-artifact@v5
+      with:
+        name: cibw-wheels-${{ matrix.os }}
+        path: ./wheelhouse/*.whl
+
+  build_sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        persist-credentials: false
+        fetch-depth: 0
+
     - name: Set up Python
       uses: actions/setup-python@v6
       with:
         python-version: "3.x"
 
-    - name: Install pypa/build
-      run: >-
-        python3 -m
-        pip install
-        build
-        --user
-    - name: Build a binary wheel and a source tarball
-      run: python3 -m build
-    - name: Store the distribution packages
-      uses: actions/upload-artifact@v5
+    - name: Build sdist
+      run: |
+        python -m pip install build
+        python -m build --sdist
+
+    - uses: actions/upload-artifact@v5
       with:
-        name: python-package-distributions
-        path: dist/
+        name: cibw-sdist
+        path: dist/*.tar.gz
 
   publish-to-pypi:
     name: >-
       Publish Python 🐍 distribution 📦 to PyPI
     if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
     needs:
-    - build
+    - build_wheels
+    - build_sdist
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -51,15 +76,17 @@ jobs:
     - name: Download all the dists
       uses: actions/download-artifact@v6
       with:
-        name: python-package-distributions
+        pattern: cibw-*
         path: dist/
+        merge-multiple: true
     - name: Publish distribution 📦 to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
 
   publish-to-testpypi:
     name: Publish Python 🐍 distribution 📦 to TestPyPI
     needs:
-    - build
+    - build_wheels
+    - build_sdist
     runs-on: ubuntu-latest
 
     environment:
@@ -73,10 +100,10 @@ jobs:
     - name: Download all the dists
       uses: actions/download-artifact@v6
       with:
-        name: python-package-distributions
+        pattern: cibw-*
         path: dist/
+        merge-multiple: true
     - name: Publish distribution 📦 to TestPyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         repository-url: https://test.pypi.org/legacy/
-
