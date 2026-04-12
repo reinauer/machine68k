@@ -3,7 +3,7 @@ requires = ["setuptools", "setuptools-scm", "cython >= 3.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "machine68k"
+name = "machine68k-amifuse"
 authors = [
     {name = "Christian Vogelgsang", email = "chris@vogelgsang.org"},
 ]
