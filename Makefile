@@ -29,7 +29,7 @@ setup:
 	$(UV) pip install -e .
 
 remove:
-	$(UV) pip uninstall machine68k
+	$(UV) pip uninstall machine68k-amifuse
 
 build:
 	$(UV) run --with setuptools --with packaging --with cython python setup.py build
